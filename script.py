@@ -18,7 +18,7 @@ def convert_csv(input_file, output_file):
     """
     try:
         reader = csv.reader(input_file)
-        writer = csv.writer(output_file)
+        writer = csv.writer(output_file, lineterminator='\n')  # Force Unix-style line endings
 
         # Skip the first three lines
         for _ in range(3):
@@ -38,23 +38,23 @@ def convert_csv(input_file, output_file):
             date = row[1]  # TRANSACTION DATE
             payee = row[4]  # DESCRIPTION
             amount = float(row[6])  # AMOUNT
-            transaction_type = row[3]  # TYPE
             tags = row[5]  # Category
 
-            # Convert amount to negative for PURCHASE transactions
-            if transaction_type == 'PURCHASE':
-                amount = -amount
+            # Always flip the sign of the amount
+            amount = -amount
 
             writer.writerow([date, payee, f'{amount:.2f}', tags])
 
     except csv.Error as e:
         print(f"Error processing CSV file: {e}", file=sys.stderr)
+        raise  # Re-raise the exception
     except ValueError as e:
         print(f"Error converting data: {e}", file=sys.stderr)
+        raise  # Re-raise the exception
     # pylint: disable=broad-except
     except Exception as e:
         print(f"An unexpected error occurred: {e}", file=sys.stderr)
-
+        raise  # Re-raise the exception
 
 def main():
     """
