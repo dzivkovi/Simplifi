@@ -3,6 +3,7 @@
 This script converts a CSV file from Canadian Tire Bank format to Quicken Simplifi format.
 It can read from an input file or stdin and write to an output file or stdout.
 """
+# flake8: noqa: E302, E305
 
 import csv
 import sys
@@ -11,31 +12,27 @@ from datetime import datetime
 import argparse
 import chardet
 
-
 def detect_encoding(file_path):
     """Detect the encoding of a file."""
     with open(file_path, 'rb') as file:
         raw_data = file.read()
     return chardet.detect(raw_data)['encoding']
 
-
 def parse_date(date_string):
     """Parse date string and return in YYYY-MM-DD format."""
     try:
         return datetime.strptime(date_string, '%Y-%m-%d').strftime('%Y-%m-%d')
-    except ValueError as e:
-        logging.warning(f"Invalid date format: {date_string}. Error: {e}")
+    except ValueError:
+        logging.warning("Invalid date format: %s", date_string)
         return date_string
-
 
 def parse_amount(amount_string):
     """Parse amount string and return as float."""
     try:
         return float(amount_string.replace('$', '').replace(',', ''))
-    except ValueError as e:
-        logging.error(f"Invalid amount format: {amount_string}. Error: {e}")
+    except ValueError:
+        logging.error("Invalid amount format: %s", amount_string)
         raise
-
 
 def convert_csv(input_file, output_file):
     """
@@ -56,14 +53,14 @@ def convert_csv(input_file, output_file):
     header = next(reader, None)
     expected_header = ['REF', 'TRANSACTION DATE', 'POSTED DATE', 'TYPE', 'DESCRIPTION', 'Category', 'AMOUNT']
     if header != expected_header:
-        logging.error(f"Invalid header: {header}")
+        logging.error("Invalid header: %s", header)
         raise ValueError("CSV file does not match expected Canadian Tire Bank format")
 
     writer.writerow(['Date', 'Payee', 'Amount', 'Tags'])
 
     for row in reader:
         if len(row) != 7:
-            logging.warning(f"Skipping invalid row: {row}")
+            logging.warning("Skipping invalid row: %s", row)
             continue
 
         try:
@@ -77,9 +74,8 @@ def convert_csv(input_file, output_file):
 
             writer.writerow([date, payee, f'{amount:.2f}', tags])
         except ValueError as e:
-            logging.error(f"Error processing row: {row}. Error: {e}")
-            raise  # Re-raise the ValueError
-
+            logging.error("Error processing row: %s. Error: %s", row, str(e))
+            raise
 
 def main():
     """Main function to handle command-line arguments and call convert_csv."""
@@ -99,8 +95,8 @@ def main():
                         format='%(asctime)s - %(levelname)s - %(message)s')
 
     try:
-        input_file = sys.stdin if args.input == '-' else open(args.input, 'r', newline='')
-        output_file = sys.stdout if args.output == '-' else open(args.output, 'w', newline='')
+        input_file = sys.stdin if args.input == '-' else open(args.input, 'r', newline='', encoding='utf-8')
+        output_file = sys.stdout if args.output == '-' else open(args.output, 'w', newline='', encoding='utf-8')
 
         if args.input != '-':
             encoding = detect_encoding(args.input)
@@ -108,8 +104,9 @@ def main():
 
         convert_csv(input_file, output_file)
 
+    # pylint: disable=broad-except
     except Exception as e:
-        logging.error(f"An error occurred: {e}")
+        logging.error("An error occurred: %s", str(e))
         sys.exit(1)
     finally:
         if args.input != '-' and 'input_file' in locals():
