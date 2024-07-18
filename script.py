@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 This script converts a CSV file from Canadian Tire Bank format to Quicken Simplifi format.
 It can read from an input file or stdin and write to an output file or stdout.
@@ -5,7 +6,35 @@ It can read from an input file or stdin and write to an output file or stdout.
 
 import csv
 import sys
-import os
+import logging
+from datetime import datetime
+import argparse
+import chardet
+
+
+def detect_encoding(file_path):
+    """Detect the encoding of a file."""
+    with open(file_path, 'rb') as file:
+        raw_data = file.read()
+    return chardet.detect(raw_data)['encoding']
+
+
+def parse_date(date_string):
+    """Parse date string and return in YYYY-MM-DD format."""
+    try:
+        return datetime.strptime(date_string, '%Y-%m-%d').strftime('%Y-%m-%d')
+    except ValueError as e:
+        logging.warning(f"Invalid date format: {date_string}. Error: {e}")
+        return date_string
+
+
+def parse_amount(amount_string):
+    """Parse amount string and return as float."""
+    try:
+        return float(amount_string.replace('$', '').replace(',', ''))
+    except ValueError as e:
+        logging.error(f"Invalid amount format: {amount_string}. Error: {e}")
+        raise
 
 
 def convert_csv(input_file, output_file):
@@ -16,79 +45,77 @@ def convert_csv(input_file, output_file):
     input_file: File object to read from
     output_file: File object to write to
     """
-    try:
-        reader = csv.reader(input_file)
-        writer = csv.writer(output_file, lineterminator='\n')  # Force Unix-style line endings
+    reader = csv.reader(input_file)
+    writer = csv.writer(output_file, lineterminator='\n')
 
-        # Skip the first three lines
-        for _ in range(3):
-            next(reader, None)
-
-        # Skip the header row
+    # Skip the first three lines
+    for _ in range(3):
         next(reader, None)
 
-        # Write the header for the output file
-        writer.writerow(['Date', 'Payee', 'Amount', 'Tags'])
+    # Read and validate the header
+    header = next(reader, None)
+    expected_header = ['REF', 'TRANSACTION DATE', 'POSTED DATE', 'TYPE', 'DESCRIPTION', 'Category', 'AMOUNT']
+    if header != expected_header:
+        logging.error(f"Invalid header: {header}")
+        raise ValueError("CSV file does not match expected Canadian Tire Bank format")
 
-        # Process the remaining lines
-        for row in reader:
-            if len(row) != 7:  # Validate row length
-                continue
+    writer.writerow(['Date', 'Payee', 'Amount', 'Tags'])
 
-            date = row[1]  # TRANSACTION DATE
-            payee = row[4]  # DESCRIPTION
-            amount = float(row[6])  # AMOUNT
-            tags = row[5]  # Category
+    for row in reader:
+        if len(row) != 7:
+            logging.warning(f"Skipping invalid row: {row}")
+            continue
+
+        try:
+            date = parse_date(row[1])
+            payee = row[4]
+            amount = parse_amount(row[6])
+            tags = row[5]
 
             # Always flip the sign of the amount
             amount = -amount
 
             writer.writerow([date, payee, f'{amount:.2f}', tags])
+        except ValueError as e:
+            logging.error(f"Error processing row: {row}. Error: {e}")
+            raise  # Re-raise the ValueError
 
-    except csv.Error as e:
-        print(f"Error processing CSV file: {e}", file=sys.stderr)
-        raise  # Re-raise the exception
-    except ValueError as e:
-        print(f"Error converting data: {e}", file=sys.stderr)
-        raise  # Re-raise the exception
-    # pylint: disable=broad-except
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}", file=sys.stderr)
-        raise  # Re-raise the exception
 
 def main():
-    """
-    Main function to handle command-line arguments and call convert_csv.
-    """
-    if len(sys.argv) == 1:
-        # No arguments: read from stdin, write to stdout
-        convert_csv(sys.stdin, sys.stdout)
-    elif len(sys.argv) == 2:
-        # One argument: input file, write to stdout
-        input_filename = sys.argv[1]
-        if not os.path.exists(input_filename):
-            print(f"Input file '{input_filename}' does not exist.",
-                  file=sys.stderr)
-            sys.exit(1)
-        with open(input_filename, 'r', newline='', encoding='utf-8') as input_file:
-            convert_csv(input_file, sys.stdout)
-    elif len(sys.argv) == 3:
-        # Two arguments: input file and output file
-        input_filename = sys.argv[1]
-        output_filename = sys.argv[2]
-        if not os.path.exists(input_filename):
-            print(f"Input file '{input_filename}' does not exist.",
-                  file=sys.stderr)
-            sys.exit(1)
-        with open(input_filename, 'r', newline='', encoding='utf-8') as input_file:
-            with open(output_filename, 'w', newline='',
-                      encoding='utf-8') as output_file:
-                convert_csv(input_file, output_file)
-    else:
-        print("Usage: python script.py [input_file] [output_file]",
-              file=sys.stderr)
-        sys.exit(1)
+    """Main function to handle command-line arguments and call convert_csv."""
+    parser = argparse.ArgumentParser(
+        description="Convert Canadian Tire Bank CSV to Quicken Simplifi format",
+        epilog="Use '-' as the input filename to read from stdin, or as the output filename to write to stdout."
+    )
+    parser.add_argument('-i', '--input', required=True,
+                        help="Input file (use '-' for stdin)")
+    parser.add_argument('-o', '--output', default='-',
+                        help="Output file (use '-' for stdout, default: stdout)")
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help="Enable verbose logging")
+    args = parser.parse_args()
 
+    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.ERROR,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
+
+    try:
+        input_file = sys.stdin if args.input == '-' else open(args.input, 'r', newline='')
+        output_file = sys.stdout if args.output == '-' else open(args.output, 'w', newline='')
+
+        if args.input != '-':
+            encoding = detect_encoding(args.input)
+            input_file = open(args.input, 'r', encoding=encoding, newline='')
+
+        convert_csv(input_file, output_file)
+
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        sys.exit(1)
+    finally:
+        if args.input != '-' and 'input_file' in locals():
+            input_file.close()
+        if args.output != '-' and 'output_file' in locals():
+            output_file.close()
 
 if __name__ == "__main__":
     main()
