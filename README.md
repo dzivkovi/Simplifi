@@ -1,29 +1,56 @@
-# Automating CSV conversion to Quicken Simplifi CSV format
+# Canadian Tire Bank to Quicken Simplifi CSV Converter
 
-## How to Manually Import Transactions
+This tool automates the conversion of CSV files from Canadian Tire Bank exports to the format required by Quicken Simplifi. It's particularly useful for users who can't directly connect their bank to Simplifi.
 
-Quicken Simplifi allows you to [manually import transactions from a CSV file](https://help.simplifimoney.com/en/articles/4413430-how-to-manually-import-transactions). This feature is useful when you need to add transactions from a bank or financial institution that doesn't support direct integration with Quicken Simplifi.
+## Background
 
-To format a CSV file for uploading transactions to Quicken Simplifi:
+Quicken Simplifi doesn't support many banks, especially in Canada. While they offer a [Report Missing Financial Institution](https://community.simplifimoney.com/categories/report-missing-financial-institutions) page, progress on these requests can be slow. This tool aims to bridge that gap by automating the CSV conversion process.
 
-1. Download the CSV template from Quicken Simplifi's website: downloadable template.
+## Features
 
-2. Fill in the template with your bank transaction data, ensuring it matches the format provided.
+- Converts Canadian Tire Bank CSV format to Quicken Simplifi format
+- Supports input from files or stdin
+- Can output to files or stdout
+- Includes error handling and logging
 
-3. To import the CSV file:
+## Usage
 
-    - Go to the Transactions page on the Quicken Simplifi Web App
-    - Select the account you want to import into
-    - Click the import icon (cloud with up arrow) above the register
-    - Choose your CSV file and click Import
+Run the script using one of the following methods:
 
-## How to Automate CSV Conversion using Claude 3.5 Sonnet
+1. Read from file, write to stdout:
 
-This process it tedious and repetead montly so it need to be automated.
+   ```sh
+   python script.py -i input.csv
+   ```
 
-Anthopic has just announced the Prompt writing assitance through console ([https://console.anthropic.com/dashboard](https://console.anthropic.com/dashboard)) so it was a perfect opportunity to aks it to kelp me with the task.
+2. Read from file, write to file:
 
-Here is the prompt it arrived to:
+   ```sh
+   python script.py -i input.csv -o output.csv
+   ```
+
+3. More options:
+
+   ```sh
+   python script.py -h
+   ```
+
+## Manual Import to Quicken Simplifi
+
+After converting your CSV, follow these steps to import it into Simplifi:
+
+1. Go to the Transactions page on the Quicken Simplifi Web App
+2. Select the account you want to import into
+3. Click the import icon (cloud with up arrow) above the register
+4. Choose your converted CSV file and click Import
+
+For more details, see Simplifi's guide on [manually importing transactions](https://help.simplifimoney.com/en/articles/4413430-how-to-manually-import-transactions).
+
+## Development Process
+
+This tool was developed with the assistance of Claude 3.5 Sonnet by Anthropic and the new Prompt Writing Assitance through [`Generate a prompt` link in a console](https://console.anthropic.com/dashboard)).
+
+Here is the prompt that kicked of most of the main script:
 
 ```sh
 You are tasked with creating a Python script that converts a CSV file from Canadian Tire Bank CSV format to Quicken Simplifi CSV format. The script should be able to read from an input file or stdin and write to an output file or stdout based on command-line arguments.
@@ -99,3 +126,7 @@ To test your script, create a sample input file named 'input.csv' with the provi
 
 Ensure that the script produces the correct output in all cases and handles errors gracefully.
 ```
+
+## Disclaimer
+
+This tool is not officially associated with Canadian Tire Bank or Quicken Simplifi. Use at your own risk and always verify the converted data for accuracy.
